@@ -1,0 +1,58 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique(map: "idx_username")
+  wins         Int           @default(0)
+  losses       Int           @default(0)
+  gameSessions GameSession[]
+  refreshToken RefreshToken?
+  Player       Player[]
+  createdAt    DateTime      @default(now())
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model GameSession {
+  id            String    @id @default(uuid())
+  winningNumber Int?
+  isActive      Boolean   @default(true)
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  duration      Int       @default(20)
+  players       Player[]
+  createdAt     DateTime  @default(now())
+  User          User?     @relation(fields: [userId], references: [id])
+  userId        String?
+}
+
+model Player {
+  id             String      @id @default(uuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameId         String
+  game           GameSession @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  selectedNumber Int
+  isWinner       Boolean?
+  createdAt      DateTime    @default(now())
+}
