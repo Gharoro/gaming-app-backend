@@ -87,45 +87,39 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       }
 
       // Start a new game session
-      let sessionToUpdate = activeSession || lastSession;
-      const sessionToken = uuidv4();
+      const newSession = await this.prisma.$transaction(async (prisma) => {
+        // Double-check no active session exists (for concurrency safety)
+        const doubleCheck = await prisma.gameSession.findFirst({
+          where: { isActive: true },
+        });
 
-      if (!sessionToUpdate) {
-        // No records exist - create the first session
-        sessionToUpdate = await this.prisma.gameSession.create({
+        if (doubleCheck) {
+          return doubleCheck;
+        }
+
+        // Create new session
+        return await prisma.gameSession.create({
           data: {
             isActive: true,
             startedAt: new Date(),
             duration: this.sessionDuration,
-            sessionToken: sessionToken,
+            sessionToken: uuidv4(),
           },
         });
-        this.logger.log(`First session created with ID: ${sessionToUpdate.id}`);
-      } else {
-        // Reset the existing session
-        sessionToUpdate = await this.prisma.gameSession.update({
-          where: { id: sessionToUpdate.id },
-          data: {
-            isActive: true,
-            startedAt: new Date(),
-            endedAt: null,
-            winningNumber: null,
-            sessionToken: sessionToken,
-          },
-        });
-        this.logger.log(`Session reset with ID: ${sessionToUpdate.id}`);
-      }
+      });
+
+      this.logger.log(`New session started with ID: ${newSession.id}`);
 
       // Broadcast the new session info
       this.gameGateway.notifySessionUpdate({
-        session: sessionToUpdate,
+        session: newSession,
         timeLeftInSeconds: this.sessionDuration,
         nextSessionIn: null,
       });
 
       // Schedule session end
       setTimeout(() => {
-        void this.endGameSession(sessionToUpdate.id);
+        void this.endGameSession(newSession.id);
       }, this.sessionDuration * 1000);
     } catch (error) {
       this.logger.error('Error managing game session:', error);
@@ -227,7 +221,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
   ): Promise<ApiResponse> {
     // Check if the game session exists and is active
     const session = await this.prisma.gameSession.findFirst({
-      where: { sessionToken: gameSessionId, isActive: true },
+      where: { id: gameSessionId, isActive: true },
     });
 
     if (!session) {
@@ -286,7 +280,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     }
 
     const session = await this.prisma.gameSession.findFirst({
-      where: { sessionToken: gameSessionId },
+      where: { id: gameSessionId },
     });
     if (!session) {
       throw new BadRequestException(
@@ -321,7 +315,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
   async getGameResult(gameSessionId: string): Promise<ApiResponse> {
     // Fetch session details & winning number
     const session = await this.prisma.gameSession.findUnique({
-      where: { sessionToken: gameSessionId },
+      where: { id: gameSessionId },
       select: { id: true, winningNumber: true, endedAt: true },
     });
 
@@ -384,7 +378,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
   // Get game session by id
   async getGameById(gameId: string, userId: string): Promise<ApiResponse> {
     const session = await this.prisma.gameSession.findFirst({
-      where: { sessionToken: gameId, isActive: true },
+      where: { id: gameId, isActive: true },
     });
 
     if (!session) {
@@ -405,7 +399,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     }
     // First check for active session
     const gameSession = await this.prisma.gameSession.findUnique({
-      where: { sessionToken: gameId },
+      where: { id: gameId },
     });
 
     if (gameSession && gameSession.isActive) {

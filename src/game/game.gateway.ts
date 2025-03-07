@@ -159,8 +159,8 @@ export class GameGateway
     };
     // Fetch session details & winning number
     const session = await this.prisma.gameSession.findUnique({
-      where: { sessionToken: gameId },
-      select: { id: true, winningNumber: true, endedAt: true },
+      where: { id: gameId },
+      select: { winningNumber: true, endedAt: true },
     });
 
     if (!session) {
@@ -171,7 +171,7 @@ export class GameGateway
       return resultPayload; // game not ended yet
     }
 
-    const { id, winningNumber } = session;
+    const { winningNumber } = session;
     // Calculate stats
     const [totalPlayers, totalWins, winners] = await Promise.all([
       this.prisma.player.count({ where: { gameId } }),
@@ -200,11 +200,11 @@ export class GameGateway
     }
 
     // Update win/loss stats in bulk
-    await this.updatePlayerStats(id, winningNumber);
+    await this.updatePlayerStats(gameId, winningNumber);
 
     // Prepare and emit results
     resultPayload = {
-      gameSessionId: session.id,
+      gameSessionId: gameId,
       winningNumber,
       totalPlayers,
       totalWins,
