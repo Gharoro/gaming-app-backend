@@ -136,8 +136,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
 
   private async endGameSession(sessionId: string) {
     try {
-      const winningNumber = 9;
-      // const winningNumber = Math.floor(Math.random() * 10) + 1;
+      const winningNumber = Math.floor(Math.random() * 10) + 1;
       const endedSession = await this.prisma.gameSession.update({
         where: { id: sessionId },
         data: {
