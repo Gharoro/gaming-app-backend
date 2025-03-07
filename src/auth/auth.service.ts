@@ -7,7 +7,6 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserDto } from './dto/user.dto';
 import { ApiResponse } from 'src/utils/interface/interface';
-
 @Injectable()
 export class AuthService {
   constructor(
@@ -24,7 +23,10 @@ export class AuthService {
         },
       });
 
-      return { message: 'User successfully created', data: newUser };
+      return {
+        message: 'User successfully created, redirecting to login...',
+        data: newUser,
+      };
     } catch (error) {
       if (error.code === 'P2002') {
         // Prisma unique constraint error
@@ -66,8 +68,11 @@ export class AuthService {
 
     const response = {
       accessToken,
-      refreshToken,
       user,
+      cookieOptions: {
+        refreshToken,
+        refreshTokenExpiresAt,
+      },
     };
 
     return {
@@ -78,6 +83,8 @@ export class AuthService {
 
   // Refresh token
   async refreshToken(token: string): Promise<ApiResponse> {
+    if (!token) throw new UnauthorizedException('Refresh token not found');
+
     const storedToken = await this.prisma.refreshToken.findUnique({
       where: { token },
       include: { user: true },
@@ -103,6 +110,9 @@ export class AuthService {
   // Logout
   async logout(userId: string): Promise<ApiResponse> {
     await this.prisma.refreshToken.delete({ where: { userId } });
-    return { message: 'User logged out successfully' };
+    return {
+      message: 'User logged out successfully',
+      data: { clearCookies: true },
+    };
   }
 }

@@ -18,7 +18,6 @@ model User {
   username     String        @unique(map: "idx_username")
   wins         Int           @default(0)
   losses       Int           @default(0)
-  gameSessions GameSession[]
   refreshToken RefreshToken?
   Player       Player[]
   createdAt    DateTime      @default(now())
@@ -35,15 +34,14 @@ model RefreshToken {
 
 model GameSession {
   id            String    @id @default(uuid())
+  sessionToken  String    @unique
   winningNumber Int?
   isActive      Boolean   @default(true)
   startedAt     DateTime  @default(now())
   endedAt       DateTime?
-  duration      Int       @default(20)
+  duration      Int       @default(30)
   players       Player[]
   createdAt     DateTime  @default(now())
-  User          User?     @relation(fields: [userId], references: [id])
-  userId        String?
 }
 
 model Player {

@@ -6,6 +6,8 @@ import { AppService } from './app.service';
 import { HealthModule } from './health/health.module';
 import { PrismaService } from './prisma/prisma.service';
 import { AuthModule } from './auth/auth.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { GameModule } from './game/game.module';
 
 @Module({
   imports: [
@@ -13,10 +15,12 @@ import { AuthModule } from './auth/auth.module';
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '1h' },
+      signOptions: { expiresIn: '3h' },
     }),
+    ScheduleModule.forRoot(),
     HealthModule,
     AuthModule,
+    GameModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

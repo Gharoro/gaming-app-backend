@@ -1,3 +1,5 @@
+import { GameSession } from '@prisma/client';
+
 export interface JwtUser {
   userId: string;
   username: string;
@@ -8,4 +10,17 @@ export interface JwtUser {
 export interface ApiResponse {
   message: string;
   data?: any;
+}
+export interface GameSessionResponse {
+  session: GameSession | null;
+  timeLeftInSeconds: number | null;
+  nextSessionIn: number | null;
+}
+export interface GameResultResponse {
+  gameSessionId: string;
+  winningNumber: number;
+  totalPlayers: number;
+  totalWins: number;
+  winners: { user: { username: string } }[];
+  nextSessionIn: number;
 }

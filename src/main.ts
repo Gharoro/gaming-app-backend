@@ -1,13 +1,21 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import * as cookieParser from 'cookie-parser';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './utils/filters/http-exception.filter';
 import { ResponseInterceptor } from './utils/interceptors/response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.enableCors();
+  app.enableCors({
+    origin: true,
+    credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    allowedHeaders: 'Content-Type,Authorization',
+  });
+  // Use cookie-parser to handle cookies
+  app.use(cookieParser());
   app.setGlobalPrefix('/api');
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(new ValidationPipe());
