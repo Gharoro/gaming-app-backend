@@ -4,6 +4,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -13,9 +14,9 @@ import {
   ApiSecurity,
   ApiTags,
 } from '@nestjs/swagger';
+import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { UserDto } from './dto/user.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { AuthGuard } from 'src/utils/guards/auth.guard';
 import { AuthUser } from 'src/utils/decorators/auth-user.decorator';
 import { JwtUser } from 'src/utils/interface/interface';
@@ -23,7 +24,7 @@ import { JwtUser } from 'src/utils/interface/interface';
 @ApiTags('Auth')
 @ApiBearerAuth('JWT-auth')
 @ApiSecurity('JWT-auth')
-@Controller('auth')
+@Controller('/v1/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -50,8 +51,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh a token' })
   @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
   @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
-  async refreshToken(@Body() body: RefreshTokenDto) {
-    return await this.authService.refreshToken(body.refreshToken);
+  async refreshToken(@Req() req: Request) {
+    const refreshToken = req.cookies['refreshToken'] as string;
+    return await this.authService.refreshToken(refreshToken);
   }
 
   @UseGuards(AuthGuard)
