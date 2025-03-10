@@ -20,7 +20,6 @@ export interface GameResultResponse {
   gameSessionId: string;
   winningNumber: number;
   totalPlayers: number;
-  currentPlayer: { selectedNumber: number } | null;
   totalWins: number;
   winners: { user: { username: string } }[];
   nextSessionIn: number;
