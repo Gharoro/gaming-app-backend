@@ -99,7 +99,10 @@ export class GameController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Returns the status of a game session' })
   @ApiResponse({ status: 200, description: 'Success' })
-  async getGameSatatus(@Param('gameId') gameId: string) {
-    return await this.gameService.getGameStatus(gameId);
+  async getGameSatatus(
+    @Param('gameId') gameId: string,
+    @AuthUser() user: JwtUser,
+  ) {
+    return await this.gameService.getGameStatus(gameId, user.userId);
   }
 }

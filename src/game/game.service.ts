@@ -366,7 +366,6 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       gameSessionId,
       winningNumber,
       totalPlayers,
-      currentPlayer: null,
       totalWins,
       winners,
       nextSessionIn,
@@ -456,7 +455,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
   }
 
   // Get game session by id
-  async getGameStatus(gameId: string): Promise<ApiResponse> {
+  async getGameStatus(gameId: string, userId: string): Promise<ApiResponse> {
     const gameSession = await this.prisma.gameSession.findFirst({
       where: { id: gameId },
     });
@@ -464,6 +463,11 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     if (!gameSession) {
       throw new NotFoundException('Game session ID not found');
     }
+
+    const currentPlayer = await this.prisma.player.findFirst({
+      where: { gameId, userId },
+      select: { selectedNumber: true },
+    });
 
     if (gameSession && gameSession.isActive) {
       const sessionEndTime =
@@ -484,6 +488,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
             timeLeftInSeconds,
             nextSessionIn: null,
             totalPlayers,
+            currentPlayer,
           },
         };
       }
@@ -511,6 +516,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
         session: gameSession,
         timeLeftInSeconds: null,
         nextSessionIn,
+        currentPlayer,
       },
     };
   }

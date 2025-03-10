@@ -93,10 +93,8 @@ export class GameGateway
   }
 
   @SubscribeMessage(GAME_RESULT_MESSAGE)
-  async handleGetGameResult(
-    @MessageBody() data: { gameId: string; userId: string },
-  ) {
-    const result = await this.getGameResult(data.gameId, data.userId);
+  async handleGetGameResult(@MessageBody() data: { gameId: string }) {
+    const result = await this.getGameResult(data.gameId);
     if (result.winningNumber !== -1) {
       this.notifyGameResult(result);
     }
@@ -152,15 +150,11 @@ export class GameGateway
     };
   }
 
-  private async getGameResult(
-    gameId: string,
-    userId: string,
-  ): Promise<GameResultResponse> {
+  private async getGameResult(gameId: string): Promise<GameResultResponse> {
     let resultPayload: GameResultResponse = {
       gameSessionId: gameId,
       winningNumber: -1,
       totalPlayers: 0,
-      currentPlayer: null,
       totalWins: 0,
       winners: [],
       nextSessionIn: -1,
@@ -181,25 +175,19 @@ export class GameGateway
 
     const { winningNumber } = session;
     // Calculate stats
-    const [totalPlayers, currentPlayer, totalWins, winners] = await Promise.all(
-      [
-        this.prisma.player.count({ where: { gameId } }),
-        this.prisma.player.findFirst({
-          where: { gameId, userId },
-          select: { selectedNumber: true },
-        }),
-        this.prisma.player.count({
-          where: { gameId, selectedNumber: winningNumber },
-        }),
-        this.prisma.player.findMany({
-          where: { gameId, selectedNumber: winningNumber },
-          select: {
-            user: { select: { username: true } },
-            selectedNumber: true,
-          },
-        }),
-      ],
-    );
+    const [totalPlayers, totalWins, winners] = await Promise.all([
+      this.prisma.player.count({ where: { gameId } }),
+      this.prisma.player.count({
+        where: { gameId, selectedNumber: winningNumber },
+      }),
+      this.prisma.player.findMany({
+        where: { gameId, selectedNumber: winningNumber },
+        select: {
+          user: { select: { username: true } },
+          selectedNumber: true,
+        },
+      }),
+    ]);
 
     const lastSession = await this.prisma.gameSession.findFirst({
       where: { isActive: false },
@@ -233,7 +221,6 @@ export class GameGateway
       gameSessionId: gameId,
       winningNumber,
       totalPlayers,
-      currentPlayer,
       totalWins,
       winners,
       nextSessionIn,
