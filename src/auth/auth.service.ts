@@ -43,14 +43,16 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('Invalid username');
 
     const jwtPayload = { userId: user.id, username: user.username };
-    const refreshTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const refreshTokenExpiresAt = new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000,
+    );
 
-    // Generate access token (valid for 1 hour)
+    // Generate access token (valid for 3 hours)
     const accessToken = await this.jwtService.signAsync(jwtPayload);
 
-    // Generate refresh token (valid for 24 hours)
+    // Generate refresh token (valid for 30 days)
     const refreshToken = await this.jwtService.signAsync(jwtPayload, {
-      expiresIn: '24h',
+      expiresIn: '30d',
     });
 
     await this.prisma.refreshToken.upsert({

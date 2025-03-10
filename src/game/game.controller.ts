@@ -94,4 +94,12 @@ export class GameController {
   async fetchUserUser(@AuthUser() user: JwtUser) {
     return await this.gameService.getUserStats(user.userId);
   }
+
+  @Get('/status/:gameId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Returns the status of a game session' })
+  @ApiResponse({ status: 200, description: 'Success' })
+  async getGameSatatus(@Param('gameId') gameId: string) {
+    return await this.gameService.getGameStatus(gameId);
+  }
 }
