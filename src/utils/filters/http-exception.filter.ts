@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { COOKIE_NAME } from '../constants/constants';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -27,6 +28,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
         typeof errorResponse === 'string'
           ? errorResponse
           : (errorResponse as any).message;
+
+      if (
+        status === HttpStatus.UNAUTHORIZED &&
+        request.url.includes('/refresh-token')
+      ) {
+        response.clearCookie(COOKIE_NAME, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        });
+      }
     }
 
     this.logger.error(

@@ -366,6 +366,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       gameSessionId,
       winningNumber,
       totalPlayers,
+      currentPlayer: null,
       totalWins,
       winners,
       nextSessionIn,
@@ -450,6 +451,66 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
         timeLeftInSeconds: null,
         nextSessionIn,
         status: 'waiting',
+      },
+    };
+  }
+
+  // Get game session by id
+  async getGameStatus(gameId: string): Promise<ApiResponse> {
+    const gameSession = await this.prisma.gameSession.findFirst({
+      where: { id: gameId },
+    });
+
+    if (!gameSession) {
+      throw new NotFoundException('Game session ID not found');
+    }
+
+    if (gameSession && gameSession.isActive) {
+      const sessionEndTime =
+        gameSession.startedAt.getTime() + gameSession.duration * 1000;
+      const timeLeftInSeconds = Math.max(
+        Math.floor((sessionEndTime - Date.now()) / 1000),
+        0,
+      );
+
+      if (timeLeftInSeconds > 0) {
+        const totalPlayers = await this.prisma.player.count({
+          where: { gameId },
+        });
+        return {
+          message: 'Game session is still active',
+          data: {
+            session: gameSession,
+            timeLeftInSeconds,
+            nextSessionIn: null,
+            totalPlayers,
+          },
+        };
+      }
+    }
+
+    // Check for wait time period
+    const lastSession = await this.prisma.gameSession.findFirst({
+      where: { isActive: false },
+      orderBy: { endedAt: 'desc' },
+    });
+
+    let nextSessionIn = this.cooldownPeriod;
+
+    if (lastSession && lastSession.endedAt) {
+      const timeSinceLastSession = Date.now() - lastSession.endedAt.getTime();
+      nextSessionIn = Math.max(
+        Math.ceil((this.cooldownPeriod * 1000 - timeSinceLastSession) / 1000),
+        0,
+      );
+    }
+
+    return {
+      message: 'Game session no longer active',
+      data: {
+        session: gameSession,
+        timeLeftInSeconds: null,
+        nextSessionIn,
       },
     };
   }

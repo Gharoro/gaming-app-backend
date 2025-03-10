@@ -93,9 +93,13 @@ export class GameGateway
   }
 
   @SubscribeMessage(GAME_RESULT_MESSAGE)
-  async handleGetGameResult(@MessageBody() data: { gameId: string }) {
-    const result = await this.getGameResult(data.gameId);
-    this.notifyGameResult(result);
+  async handleGetGameResult(
+    @MessageBody() data: { gameId: string; userId: string },
+  ) {
+    const result = await this.getGameResult(data.gameId, data.userId);
+    if (result.winningNumber !== -1) {
+      this.notifyGameResult(result);
+    }
   }
 
   private validateToken(token: string) {
@@ -148,11 +152,15 @@ export class GameGateway
     };
   }
 
-  private async getGameResult(gameId: string): Promise<GameResultResponse> {
+  private async getGameResult(
+    gameId: string,
+    userId: string,
+  ): Promise<GameResultResponse> {
     let resultPayload: GameResultResponse = {
       gameSessionId: gameId,
       winningNumber: -1,
       totalPlayers: 0,
+      currentPlayer: null,
       totalWins: 0,
       winners: [],
       nextSessionIn: -1,
@@ -173,16 +181,25 @@ export class GameGateway
 
     const { winningNumber } = session;
     // Calculate stats
-    const [totalPlayers, totalWins, winners] = await Promise.all([
-      this.prisma.player.count({ where: { gameId } }),
-      this.prisma.player.count({
-        where: { gameId, selectedNumber: winningNumber },
-      }),
-      this.prisma.player.findMany({
-        where: { gameId, selectedNumber: winningNumber },
-        select: { user: { select: { username: true } } },
-      }),
-    ]);
+    const [totalPlayers, currentPlayer, totalWins, winners] = await Promise.all(
+      [
+        this.prisma.player.count({ where: { gameId } }),
+        this.prisma.player.findFirst({
+          where: { gameId, userId },
+          select: { selectedNumber: true },
+        }),
+        this.prisma.player.count({
+          where: { gameId, selectedNumber: winningNumber },
+        }),
+        this.prisma.player.findMany({
+          where: { gameId, selectedNumber: winningNumber },
+          select: {
+            user: { select: { username: true } },
+            selectedNumber: true,
+          },
+        }),
+      ],
+    );
 
     const lastSession = await this.prisma.gameSession.findFirst({
       where: { isActive: false },
@@ -199,14 +216,24 @@ export class GameGateway
       );
     }
 
-    // Update win/loss stats in bulk
-    await this.updatePlayerStats(gameId, winningNumber);
+    const hasUpdatedStats = await this.prisma.player.findFirst({
+      where: {
+        gameId,
+        OR: [{ isWinner: true }, { isWinner: false }],
+      },
+    });
+
+    if (!hasUpdatedStats) {
+      // Update win/loss stats in bulk
+      await this.updatePlayerStats(gameId, winningNumber);
+    }
 
     // Prepare and emit results
     resultPayload = {
       gameSessionId: gameId,
       winningNumber,
       totalPlayers,
+      currentPlayer,
       totalWins,
       winners,
       nextSessionIn,
@@ -216,50 +243,40 @@ export class GameGateway
   }
 
   async updatePlayerStats(gameSessionId: string, winningNumber: number) {
-    // Update winners
+    const winners = await this.prisma.player.findMany({
+      where: { gameId: gameSessionId, selectedNumber: winningNumber },
+      select: { userId: true },
+    });
+
+    const losers = await this.prisma.player.findMany({
+      where: { gameId: gameSessionId, selectedNumber: { not: winningNumber } },
+      select: { userId: true },
+    });
+
     await this.prisma.player.updateMany({
       where: { gameId: gameSessionId, selectedNumber: winningNumber },
       data: { isWinner: true },
     });
 
-    // Update losers
     await this.prisma.player.updateMany({
       where: { gameId: gameSessionId, selectedNumber: { not: winningNumber } },
       data: { isWinner: false },
     });
 
-    // Update user total wins & losses in bulk
+    // Update user stats
     await this.prisma.$transaction([
       this.prisma.user.updateMany({
         where: {
-          id: {
-            in: (await this.getWinners(gameSessionId)).map((w) => w.userId),
-          },
+          id: { in: winners.map((w) => w.userId) },
         },
         data: { wins: { increment: 1 } },
       }),
       this.prisma.user.updateMany({
         where: {
-          id: {
-            in: (await this.getLosers(gameSessionId)).map((l) => l.userId),
-          },
+          id: { in: losers.map((l) => l.userId) },
         },
         data: { losses: { increment: 1 } },
       }),
     ]);
-  }
-
-  private async getWinners(gameSessionId: string) {
-    return this.prisma.player.findMany({
-      where: { gameId: gameSessionId, isWinner: true },
-      select: { userId: true },
-    });
-  }
-
-  private async getLosers(gameSessionId: string) {
-    return this.prisma.player.findMany({
-      where: { gameId: gameSessionId, isWinner: false },
-      select: { userId: true },
-    });
   }
 }
